@@ -5,8 +5,8 @@ import { generatePersonalizedPrompt, type UserProfile } from "@/lib/models/user"
 
 export async function POST(request: NextRequest) {
   try {
-    const authToken = request.cookies.get("auth-token")?.value
-
+    const authHeader = request.headers.get("authorization")
+    const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
     if (!authToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const authToken = request.cookies.get("auth-token")?.value
-
+    const authHeader = request.headers.get("authorization")
+    const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
     if (!authToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

@@ -74,18 +74,10 @@ export async function GET(request: NextRequest) {
     )
 
     const redirectUrl = existingUser?.onboardingCompleted
-      ? `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/chat`
-      : `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/onboarding`
+      ? `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/chat?token=${jwtToken}`
+      : `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/onboarding?token=${jwtToken}`
 
-    const response = NextResponse.redirect(redirectUrl)
-    response.cookies.set("auth-token", jwtToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-    })
-
-    return response
+    return NextResponse.redirect(redirectUrl)
   } catch (error) {
     console.error("OAuth callback error:", error)
     return NextResponse.redirect("/error?message=Authentication failed")

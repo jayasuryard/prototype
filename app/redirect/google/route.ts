@@ -60,16 +60,8 @@ export async function GET(request: NextRequest) {
       { expiresIn: "7d" },
     )
 
-    const response = NextResponse.redirect(new URL("/onboarding", request.url))
-    response.cookies.set("auth-token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    })
-
-    return response
+  const response = NextResponse.redirect(new URL(`/onboarding?token=${token}`, request.url))
+  return response
   } catch (error) {
     console.error("OAuth callback error:", error)
     return NextResponse.redirect(new URL("/error?message=auth_failed", request.url))

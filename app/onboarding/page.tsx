@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -34,7 +34,21 @@ interface OnboardingData {
   medicalConditions?: string[]
 }
 
+function useStoreTokenFromUrl() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("token");
+    if (token) {
+      localStorage.setItem("auth-token", token);
+      url.searchParams.delete("token");
+      window.history.replaceState({}, document.title, url.pathname + url.search);
+    }
+  }, []);
+}
+
 export default function OnboardingPage() {
+  useStoreTokenFromUrl();
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [data, setData] = useState<OnboardingData>({
@@ -75,10 +89,12 @@ export default function OnboardingPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true)
     try {
+      const token = localStorage.getItem("auth-token")
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(data),
       })

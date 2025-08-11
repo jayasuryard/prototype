@@ -4,8 +4,8 @@ import { getDatabase } from "@/lib/mongodb"
 
 export async function GET(request: NextRequest) {
   try {
-    const authToken = request.cookies.get("auth-token")?.value
-
+    const authHeader = request.headers.get("authorization")
+    const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
     if (!authToken) {
       return NextResponse.json({ authenticated: false })
     }

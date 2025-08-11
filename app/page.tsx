@@ -11,7 +11,12 @@ export default function HomePage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/check")
+        const token = localStorage.getItem("auth-token")
+        const response = await fetch("/api/auth/check", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
         const data = await response.json()
 
         if (data.authenticated) {

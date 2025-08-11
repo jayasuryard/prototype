@@ -20,7 +20,21 @@ interface UserData {
   personalizedPrompt?: string
 }
 
+function useStoreTokenFromUrl() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("token");
+    if (token) {
+      localStorage.setItem("auth-token", token);
+      url.searchParams.delete("token");
+      window.history.replaceState({}, document.title, url.pathname + url.search);
+    }
+  }, []);
+}
+
 export default function ChatPage() {
+  useStoreTokenFromUrl();
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState("")
   const [selectedAgent, setSelectedAgent] = useState("normal")
@@ -38,7 +52,12 @@ export default function ChatPage() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const response = await fetch("/api/user/profile")
+        const token = localStorage.getItem("auth-token")
+        const response = await fetch("/api/user/profile", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
         if (response.ok) {
           const data = await response.json()
           setUserData(data.userData || {})
@@ -73,10 +92,12 @@ export default function ChatPage() {
     setIsLoading(true)
 
     try {
+      const token = localStorage.getItem("auth-token")
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           message: inputMessage,

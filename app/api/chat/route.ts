@@ -70,8 +70,8 @@ Keep the tone warm, respectful, and supportive, as both a professional and a car
 export async function POST(request: NextRequest) {
   try {
     const { message, agent } = await request.json()
-    const authToken = request.cookies.get("auth-token")?.value
-
+    const authHeader = request.headers.get("authorization")
+    const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
     if (!authToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
