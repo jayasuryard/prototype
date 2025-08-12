@@ -81,10 +81,18 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
+    console.log("Chat request from user:", decoded.id, "with agent:", agent)
+
     const db = await getDatabase()
 
     // Get user profile for personalized context
     const userProfile = (await db.collection("users").findOne({ googleId: decoded.id })) as UserProfile | null
+
+    console.log("User profile for chat:", {
+      found: !!userProfile,
+      hasPersonalizedPrompt: !!userProfile?.personalizedPrompt,
+      onboardingCompleted: userProfile?.onboardingCompleted,
+    })
 
     // Get the system prompt for the selected agent
     const selectedAgent = agents[agent as keyof typeof agents]
@@ -96,6 +104,9 @@ export async function POST(request: NextRequest) {
     let personalizedContext = ""
     if (userProfile?.personalizedPrompt) {
       personalizedContext = `\n\nUser Context: ${userProfile.personalizedPrompt}`
+      console.log("Using personalized context in chat")
+    } else {
+      console.log("No personalized context available")
     }
 
     // Build the conversation context
@@ -109,6 +120,11 @@ export async function POST(request: NextRequest) {
         content: message,
       },
     ]
+
+    console.log(
+      "Sending request to Groq with system prompt length:",
+      selectedAgent.systemPrompt.length + personalizedContext.length,
+    )
 
     // Call Groq API
     const completion = await groq.chat.completions.create({
@@ -142,6 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     await db.collection("chat_messages").insertOne(chatMessage)
+    console.log("Chat message saved to database")
 
     return NextResponse.json({ response })
   } catch (error) {

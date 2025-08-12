@@ -1,31 +1,39 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { connectToDatabase } from "@/lib/mongodb"
+import { getDatabase } from "@/lib/mongodb"
+import jwt from "jsonwebtoken"
+import type { UserProfile } from "@/lib/models/user"
 
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
-    if (!authHeader) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
+    if (!authToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    // Expecting: Bearer <sessionId>
-    const sessionId = authHeader.replace(/^Bearer /i, "").trim()
-    if (!sessionId) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-    const { db } = await connectToDatabase()
-    // Find user by session
-    const session = await db.collection("sessions").findOne({ sessionId })
-    if (!session) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 })
-    }
-    // Get user profile
-    const userProfile = await db.collection("users").findOne({ googleId: session.googleId })
+
+    const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
+    console.log("Profile request from user:", decoded.id)
+
+    const db = await getDatabase()
+
+    const userProfile = (await db.collection("users").findOne({ googleId: decoded.id })) as UserProfile | null
+
     if (!userProfile) {
+      console.log("User profile not found for:", decoded.id)
       return NextResponse.json({ error: "User profile not found" }, { status: 404 })
     }
-    // Return user profile data (excluding sensitive info)
+
+    console.log("User profile found:", {
+      hasOnboardingData: !!userProfile.onboardingData,
+      hasPersonalizedPrompt: !!userProfile.personalizedPrompt,
+      onboardingCompleted: userProfile.onboardingCompleted,
+    })
+
     const { _id, ...profileData } = userProfile
-    return NextResponse.json({ userData: profileData })
+    return NextResponse.json({
+      userData: profileData,
+      personalizedPrompt: userProfile.personalizedPrompt,
+    })
   } catch (error) {
     console.error("Profile fetch error:", error)
     return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 })

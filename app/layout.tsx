@@ -6,7 +6,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Ryo Forge AI',
-  description: 'chat with your personal AI Health Assistant'
+  description: 'chat with your personal AI Health Assistant',
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({

@@ -25,14 +25,28 @@ if (process.env.NODE_ENV === "development") {
 }
 
 export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
-  const client = await clientPromise
-  const db = client.db("healthcare_ai")
-  return { client, db }
+  try {
+    const client = await clientPromise
+    const db = client.db("healthcare_ai")
+    await db.admin().ping()
+    console.log("MongoDB connection successful")
+    return { client, db }
+  } catch (error) {
+    console.error("MongoDB connection error:", error)
+    throw error
+  }
 }
 
 export async function getDatabase(): Promise<Db> {
-  const client = await clientPromise
-  return client.db("healthcare_ai")
+  try {
+    const client = await clientPromise
+    const db = client.db("healthcare_ai")
+    await db.admin().ping()
+    return db
+  } catch (error) {
+    console.error("MongoDB database access error:", error)
+    throw error
+  }
 }
 
 export default clientPromise
