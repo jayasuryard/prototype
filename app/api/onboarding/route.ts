@@ -7,15 +7,17 @@ export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization")
     const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
+
     if (!authToken) {
+      console.error("❌ No authorization token provided")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
     const onboardingData = await request.json()
 
-    console.log("Received onboarding data for user:", decoded.id)
-    console.log("Onboarding data structure:", JSON.stringify(onboardingData, null, 2))
+    console.log("📝 Received onboarding data for user:", decoded.id)
+    console.log("📊 Onboarding data:", JSON.stringify(onboardingData, null, 2))
 
     let heightInCm = undefined
     if (onboardingData.heightFeet && onboardingData.heightInches !== undefined) {
@@ -49,7 +51,18 @@ export async function POST(request: NextRequest) {
 
     console.log("Generated personalized prompt:", personalizedPrompt)
 
+    console.log("🔌 Connecting to database for onboarding...")
     const db = await getDatabase()
+
+    const existingUser = await db.collection("users").findOne({ googleId: decoded.id })
+    if (!existingUser) {
+      console.error("❌ User not found for onboarding:", decoded.id)
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    console.log("✅ User found for onboarding update")
+
+    console.log("💾 Saving onboarding data...")
     const result = await db.collection("users").updateOne(
       { googleId: decoded.id },
       {
@@ -62,13 +75,23 @@ export async function POST(request: NextRequest) {
       },
     )
 
-    console.log("Onboarding update result:", {
+    console.log("✅ Onboarding update result:", {
       matchedCount: result.matchedCount,
       modifiedCount: result.modifiedCount,
+      acknowledged: result.acknowledged,
     })
 
+    if (result.matchedCount === 0) {
+      console.error("❌ No user matched for onboarding update")
+      return NextResponse.json({ error: "User not found for update" }, { status: 404 })
+    }
+
+    if (result.modifiedCount === 0) {
+      console.warn("⚠️ No documents were modified during onboarding update")
+    }
+
     const updatedUser = await db.collection("users").findOne({ googleId: decoded.id })
-    console.log("User after onboarding update:", {
+    console.log("✅ User after onboarding update:", {
       onboardingCompleted: updatedUser?.onboardingCompleted,
       hasOnboardingData: !!updatedUser?.onboardingData,
       hasPersonalizedPrompt: !!updatedUser?.personalizedPrompt,
@@ -79,8 +102,14 @@ export async function POST(request: NextRequest) {
       message: "Onboarding completed successfully",
     })
   } catch (error) {
-    console.error("Onboarding API error:", error)
-    return NextResponse.json({ error: "Failed to save onboarding data" }, { status: 500 })
+    console.error("❌ Onboarding API error:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to save onboarding data",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 

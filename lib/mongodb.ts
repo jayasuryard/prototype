@@ -1,6 +1,11 @@
 import { MongoClient, type Db } from "mongodb"
 
 const uri = process.env.MONGODB_URI || "mongodb+srv://jayasuryard:LaSO24NVgXK0yPMz@cluster0.udisp08.mongodb.net/"
+
+if (!uri) {
+  throw new Error("Please define the MONGODB_URI environment variable")
+}
+
 const options = {}
 
 let client: MongoClient
@@ -39,13 +44,20 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
 
 export async function getDatabase(): Promise<Db> {
   try {
+    console.log("Attempting to connect to MongoDB...")
     const client = await clientPromise
     const db = client.db("healthcare_ai")
+
     await db.admin().ping()
+    console.log("✅ MongoDB connection successful - database: healthcare_ai")
+
+    const userCount = await db.collection("users").countDocuments()
+    console.log(`📊 Users collection has ${userCount} documents`)
+
     return db
   } catch (error) {
-    console.error("MongoDB database access error:", error)
-    throw error
+    console.error("❌ MongoDB database access error:", error)
+    throw new Error(`Database connection failed: ${error}`)
   }
 }
 
