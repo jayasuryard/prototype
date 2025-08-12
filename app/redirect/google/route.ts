@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: "authorization_code",
-        redirect_uri: "http://localhost:3000/redirect/google",
+        redirect_uri: "https://v0-image-analysis-phi-one-61.vercel.app/redirect/google",
       }),
     })
 
