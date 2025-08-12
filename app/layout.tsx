@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import PWAInstall from "@/components/PWAInstall"
+import InstallPrompt from "@/components/InstallPrompt"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
     siteName: 'Ryo Forge AI',
     images: [
       {
-        url: '/icons/icon-512x512.png',
+        url: '/icons/icon-512x512.svg',
         width: 512,
         height: 512,
         alt: 'Ryo Forge AI Logo',
@@ -46,13 +47,14 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Ryo Forge AI - Healthcare Assistant',
     description: 'Your personalized healthcare AI assistant with Ayurvedic & Modern medical expertise',
-    images: ['/icons/icon-512x512.png'],
+    images: ['/icons/icon-512x512.svg'],
   },
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/icons/icon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/icons/icon-32x32.svg', sizes: '32x32', type: 'image/svg+xml' },
+      { url: '/icons/icon-16x16.svg', sizes: '16x16', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any', type: 'image/x-icon' },
     ],
     apple: [
       { url: '/apple-touch-icon.svg', sizes: '180x180', type: 'image/svg+xml' },
@@ -61,7 +63,7 @@ export const metadata: Metadata = {
       {
         rel: 'mask-icon',
         url: '/icons/icon.svg',
-        color: '#667eea',
+        color: '#2563eb',
       },
     ],
   },
@@ -110,6 +112,7 @@ html {
           {children}
         </Suspense>
         <PWAInstall />
+        <InstallPrompt />
         <Analytics />
       </body>
     </html>

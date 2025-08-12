@@ -409,6 +409,11 @@ export default function ChatPage() {
             </Select>
           </div>
 
+          {/* Install App Button for Mobile */}
+          <div className="mb-4">
+            <InstallButton variant="mobile" />
+          </div>
+
           {/* Actions */}
           <div className="space-y-2">
             <Button

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useRouter } from "next/navigation"
+import InstallButton from "@/components/InstallButton"
 
 interface OnboardingData {
   dateOfBirth: string
@@ -722,6 +723,11 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 p-4">
+      {/* Install Button - Fixed Position for Mobile */}
+      <div className="fixed top-4 right-4 z-10">
+        <InstallButton variant="mobile" />
+      </div>
+      
       <div className="max-w-2xl mx-auto">
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-center mb-2">Welcome to Ryo Forge AI</h1>

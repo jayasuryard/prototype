@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <radialGradient id="bg16" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#f0f9ff"/>
+      <stop offset="100%" style="stop-color:#dbeafe"/>
+    </radialGradient>
+    <linearGradient id="spiral1_16" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#ef4444"/>
+    </linearGradient>
+    <linearGradient id="spiral2_16" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <radialGradient id="center16" cx="50%" cy="50%" r="40%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="8" cy="8" r="8" fill="url(#bg16)"/>
+  
+  <!-- First spiral (rotated 0°) -->
+  <g transform="rotate(0 8 8)">
+    <path d="M8,2 Q12,4 10,8 Q6,12 8,10 Q10,6 8,8 Q7,9 8,8" 
+          fill="none" stroke="url(#spiral1_16)" stroke-width="0.8" opacity="0.8"/>
+  </g>
+  
+  <!-- Second spiral (rotated 120°) -->
+  <g transform="rotate(120 8 8)">
+    <path d="M8,2 Q12,4 10,8 Q6,12 8,10 Q10,6 8,8 Q7,9 8,8" 
+          fill="none" stroke="url(#spiral2_16)" stroke-width="0.8" opacity="0.8"/>
+  </g>
+  
+  <!-- Third spiral (rotated 240°) -->
+  <g transform="rotate(240 8 8)">
+    <path d="M8,2 Q12,4 10,8 Q6,12 8,10 Q10,6 8,8 Q7,9 8,8" 
+          fill="none" stroke="url(#spiral1_16)" stroke-width="0.8" opacity="0.6"/>
+  </g>
+  
+  <!-- Center highlight -->
+  <circle cx="8" cy="8" r="1" fill="url(#center16)" opacity="0.9"/>
+</svg>
