@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { getDatabase } from "@/lib/mongodb"
-import type { UserProfile } from "@/lib/models/user"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -42,14 +41,12 @@ export async function GET(request: NextRequest) {
     })
 
     const user = await userResponse.json()
-
     console.log("👤 Google user data received:", { id: user.id, email: user.email, name: user.name })
 
-    console.log("🔌 Connecting to database...")
     const db = await getDatabase()
     console.log("✅ Database connection established")
 
-    const existingUser = (await db.collection("users").findOne({ googleId: user.id })) as UserProfile | null
+    const existingUser = await db.collection("users").findOne({ googleId: user.id })
     console.log("🔍 Existing user check:", existingUser ? "Found existing user" : "New user")
 
     const userData = {
@@ -57,36 +54,24 @@ export async function GET(request: NextRequest) {
       email: user.email,
       name: user.name,
       picture: user.picture,
+      onboardingCompleted: existingUser?.onboardingCompleted || false,
       updatedAt: new Date(),
+      ...(existingUser ? {} : { createdAt: new Date() }),
     }
 
-    const insertData = {
-      createdAt: new Date(),
-      onboardingCompleted: false,
-    }
+    console.log("💾 Saving user data:", userData)
 
-    console.log("💾 Attempting to save user data:", userData)
+    const result = await db.collection("users").updateOne({ googleId: user.id }, { $set: userData }, { upsert: true })
 
-    const result = await db.collection("users").updateOne(
-      { googleId: user.id },
-      {
-        $set: userData,
-        $setOnInsert: insertData,
-      },
-      { upsert: true },
-    )
-
-    console.log("✅ User upsert completed:", {
+    console.log("✅ User save result:", {
       matchedCount: result.matchedCount,
       modifiedCount: result.modifiedCount,
       upsertedCount: result.upsertedCount,
-      upsertedId: result.upsertedId,
       acknowledged: result.acknowledged,
     })
 
-    const savedUser = (await db.collection("users").findOne({ googleId: user.id })) as UserProfile | null
+    const savedUser = await db.collection("users").findOne({ googleId: user.id })
     if (!savedUser) {
-      console.error("❌ User was not saved to database!")
       throw new Error("Failed to save user to database")
     }
 
@@ -107,9 +92,9 @@ export async function GET(request: NextRequest) {
       { expiresIn: "7d" },
     )
 
-    const redirectUrl = savedUser?.onboardingCompleted
-      ? `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/chat?token=${jwtToken}`
-      : `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/onboarding?token=${jwtToken}`
+    const redirectUrl = savedUser.onboardingCompleted
+      ? `${process.env.NEXTAUTH_URL || "https://ryoforge-ai.vercel.app"}/chat?token=${jwtToken}`
+      : `${process.env.NEXTAUTH_URL || "https://ryoforge-ai.vercel.app"}/onboarding?token=${jwtToken}`
 
     console.log("🔄 Redirecting to:", redirectUrl)
     return NextResponse.redirect(redirectUrl)

@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server"
 import Groq from "groq-sdk"
 import { getDatabase } from "@/lib/mongodb"
 import jwt from "jsonwebtoken"
-import type { UserProfile, ChatMessage } from "@/lib/models/user"
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -72,6 +71,7 @@ export async function POST(request: NextRequest) {
     const { message, agent } = await request.json()
     const authHeader = request.headers.get("authorization")
     const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
+
     if (!authToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -81,12 +81,10 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
-    console.log("Chat request from user:", decoded.id, "with agent:", agent)
+    console.log("💬 Chat request from user:", decoded.id, "with agent:", agent)
 
     const db = await getDatabase()
-
-    // Get user profile for personalized context
-    const userProfile = (await db.collection("users").findOne({ googleId: decoded.id })) as UserProfile | null
+    const userProfile = await db.collection("users").findOne({ googleId: decoded.id })
 
     console.log("User profile for chat:", {
       found: !!userProfile,
@@ -94,22 +92,19 @@ export async function POST(request: NextRequest) {
       onboardingCompleted: userProfile?.onboardingCompleted,
     })
 
-    // Get the system prompt for the selected agent
     const selectedAgent = agents[agent as keyof typeof agents]
     if (!selectedAgent) {
       return NextResponse.json({ error: "Invalid agent selected" }, { status: 400 })
     }
 
-    // Build enhanced personalized context
     let personalizedContext = ""
     if (userProfile?.personalizedPrompt) {
       personalizedContext = `\n\nUser Context: ${userProfile.personalizedPrompt}`
-      console.log("Using personalized context in chat")
+      console.log("✅ Using personalized context in chat")
     } else {
-      console.log("No personalized context available")
+      console.log("⚠️ No personalized context available")
     }
 
-    // Build the conversation context
     const messages = [
       {
         role: "system" as const,
@@ -121,12 +116,7 @@ export async function POST(request: NextRequest) {
       },
     ]
 
-    console.log(
-      "Sending request to Groq with system prompt length:",
-      selectedAgent.systemPrompt.length + personalizedContext.length,
-    )
-
-    // Call Groq API
+    console.log("🤖 Sending request to Groq...")
     const completion = await groq.chat.completions.create({
       messages,
       model: "gemma2-9b-it",
@@ -137,7 +127,6 @@ export async function POST(request: NextRequest) {
     let response =
       completion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again."
 
-    // Convert MDX/Markdown to plain text
     response = response
       .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold markdown
       .replace(/\*(.*?)\*/g, "$1") // Remove italic markdown
@@ -148,8 +137,7 @@ export async function POST(request: NextRequest) {
       .replace(/^\s*\d+\.\s/gm, "") // Remove numbered lists
       .trim()
 
-    // Store chat message in MongoDB with proper structure
-    const chatMessage: ChatMessage = {
+    const chatMessage = {
       userId: decoded.id,
       agent: agent as "normal" | "jiva" | "suri",
       userMessage: message,
@@ -158,11 +146,11 @@ export async function POST(request: NextRequest) {
     }
 
     await db.collection("chat_messages").insertOne(chatMessage)
-    console.log("Chat message saved to database")
+    console.log("💾 Chat message saved to database")
 
     return NextResponse.json({ response })
   } catch (error) {
-    console.error("Chat API error:", error)
+    console.error("❌ Chat API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

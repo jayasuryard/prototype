@@ -12,8 +12,6 @@ let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
 if (process.env.NODE_ENV === "development") {
-  // In development mode, use a global variable so that the value
-  // is preserved across module reloads caused by HMR (Hot Module Replacement).
   const globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>
   }
@@ -24,40 +22,75 @@ if (process.env.NODE_ENV === "development") {
   }
   clientPromise = globalWithMongo._mongoClientPromise
 } else {
-  // In production mode, it's best to not use a global variable.
   client = new MongoClient(uri, options)
   clientPromise = client.connect()
 }
 
-export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
+export async function initializeDatabase(): Promise<Db> {
   try {
+    console.log("🔄 Initializing MongoDB connection and collections...")
     const client = await clientPromise
     const db = client.db("healthcare_ai")
+
+    // Test connection
     await db.admin().ping()
-    console.log("MongoDB connection successful")
-    return { client, db }
+    console.log("✅ MongoDB connection successful - database: healthcare_ai")
+
+    // Create collections if they don't exist and set up indexes
+    const collections = await db.listCollections().toArray()
+    const collectionNames = collections.map((c) => c.name)
+
+    // Users collection
+    if (!collectionNames.includes("users")) {
+      await db.createCollection("users")
+      console.log("📁 Created 'users' collection")
+    }
+
+    // Create indexes for users collection
+    await db.collection("users").createIndex({ googleId: 1 }, { unique: true })
+    await db.collection("users").createIndex({ email: 1 })
+    console.log("🔍 Created indexes for users collection")
+
+    // Chat messages collection
+    if (!collectionNames.includes("chat_messages")) {
+      await db.createCollection("chat_messages")
+      console.log("📁 Created 'chat_messages' collection")
+    }
+
+    // Create indexes for chat messages
+    await db.collection("chat_messages").createIndex({ userId: 1 })
+    await db.collection("chat_messages").createIndex({ timestamp: -1 })
+    console.log("🔍 Created indexes for chat_messages collection")
+
+    const userCount = await db.collection("users").countDocuments()
+    const chatCount = await db.collection("chat_messages").countDocuments()
+    console.log(`📊 Database initialized - Users: ${userCount}, Chat messages: ${chatCount}`)
+
+    return db
   } catch (error) {
-    console.error("MongoDB connection error:", error)
+    console.error("❌ MongoDB initialization error:", error)
     throw error
   }
 }
 
 export async function getDatabase(): Promise<Db> {
   try {
-    console.log("Attempting to connect to MongoDB...")
-    const client = await clientPromise
-    const db = client.db("healthcare_ai")
-
-    await db.admin().ping()
-    console.log("✅ MongoDB connection successful - database: healthcare_ai")
-
-    const userCount = await db.collection("users").countDocuments()
-    console.log(`📊 Users collection has ${userCount} documents`)
-
+    const db = await initializeDatabase()
     return db
   } catch (error) {
     console.error("❌ MongoDB database access error:", error)
     throw new Error(`Database connection failed: ${error}`)
+  }
+}
+
+export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
+  try {
+    const client = await clientPromise
+    const db = await initializeDatabase()
+    return { client, db }
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error)
+    throw error
   }
 }
 
