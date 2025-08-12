@@ -51,7 +51,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Jiva-Suri</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Ryo Forge AI</h1>
           <p className="text-lg text-gray-600 mb-8">Your Personalized Healthcare AI Assistant</p>
           <div className="space-y-4 text-sm text-gray-600">
             <div className="bg-white/50 rounded-lg p-4 border border-green-200">

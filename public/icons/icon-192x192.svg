@@ -1,0 +1,33 @@
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="spiralGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#dc2626;stop-opacity:0.7" />
+    </linearGradient>
+    <linearGradient id="spiralGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#059669;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#4338ca;stop-opacity:0.6" />
+    </linearGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <circle cx="96" cy="96" r="90" fill="url(#bg)"/>
+  
+  <path d="M 96 20 C 138 20 172 54 172 96 C 172 138 138 172 96 172 C 54 172 20 138 20 96 C 20 54 54 20 96 20 C 120 20 138 38 138 62 C 138 86 120 104 96 104 C 72 104 54 86 54 62"
+        fill="none" stroke="url(#spiralGrad1)" stroke-width="10" stroke-linecap="round"/>
+  
+  <g transform="rotate(120 96 96)">
+    <path d="M 96 20 C 138 20 172 54 172 96 C 172 138 138 172 96 172 C 54 172 20 138 20 96 C 20 54 54 20 96 20 C 120 20 138 38 138 62 C 138 86 120 104 96 104 C 72 104 54 86 54 62"
+          fill="none" stroke="url(#spiralGrad2)" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
+  </g>
+  
+  <g transform="rotate(240 96 96)">
+    <path d="M 96 20 C 138 20 172 54 172 96 C 172 138 138 172 96 172 C 54 172 20 138 20 96 C 20 54 54 20 96 20 C 120 20 138 38 138 62 C 138 86 120 104 96 104 C 72 104 54 86 54 62"
+          fill="none" stroke="url(#spiralGrad1)" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  </g>
+  
+  <circle cx="96" cy="96" r="12" fill="white" stroke="url(#spiralGrad1)" stroke-width="2"/>
+</svg>

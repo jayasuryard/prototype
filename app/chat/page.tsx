@@ -5,11 +5,12 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Menu, X, LogOut, Trash2, User } from "lucide-react"
+import InstallButton from "@/components/InstallButton"
 
 interface Message {
   role: "user" | "assistant"
@@ -97,6 +98,15 @@ function useStoreTokenFromUrl() {
 export default function ChatPage() {
   useStoreTokenFromUrl()
   
+  // Handle PWA shortcut parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const agentParam = urlParams.get('agent')
+    if (agentParam && ['normal', 'jiva', 'suri'].includes(agentParam)) {
+      setSelectedAgent(agentParam)
+    }
+  }, [])
+  
   // Helper function to check if user is medical professional
   const isMedicalProfessional = () => {
     return userProfile?.onboardingData?.profession === "medico"
@@ -142,6 +152,20 @@ export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [typingMessageIndex, setTypingMessageIndex] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Check if device is mobile
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent))
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const agents = {
     normal: { name: "Auto Mode", color: "bg-gray-100 text-gray-800", description: "Smart AI with both Ayurvedic & Allopathic expertise" },
@@ -292,8 +316,8 @@ export default function ChatPage() {
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
       e.preventDefault()
       sendMessage()
     }
@@ -423,13 +447,15 @@ export default function ChatPage() {
             </Button>
             
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Healthcare AI</h1>
+              <h1 className="text-xl font-bold text-gray-900">Ryo Forge AI</h1>
               <p className="text-sm text-gray-600">Your personalized health companion</p>
             </div>
           </div>
           
           {/* Desktop Controls */}
           <div className="hidden lg:flex items-center gap-4">
+            <InstallButton />
+            
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Agent:</span>
               <Select value={selectedAgent} onValueChange={handleAgentChange}>
@@ -621,23 +647,26 @@ export default function ChatPage() {
 
               <div className="border-t border-gray-200 p-4">
                 <div className="flex gap-2">
-                  <Input
+                  <Textarea
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     placeholder={
                       isMedicalProfessional() 
                         ? `Describe your clinical case or medical inquiry for ${agents[selectedAgent as keyof typeof agents].name}...`
                         : `Ask ${agents[selectedAgent as keyof typeof agents].name} anything about your health...`
                     }
                     disabled={isLoading}
-                    className="flex-1"
+                    className="flex-1 max-h-32"
+                    rows={2}
                   />
                   <Button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading}>
                     Send
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Press Enter to send, Shift+Enter for new line</p>
+                {!isMobile && (
+                  <p className="text-xs text-gray-500 mt-2">Press Enter to send, Shift+Enter for new line</p>
+                )}
               </div>
             </CardContent>
           </Card>
