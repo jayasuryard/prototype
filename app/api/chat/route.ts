@@ -2,69 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 import Groq from "groq-sdk"
 import { getDatabase } from "@/lib/mongodb"
 import jwt from "jsonwebtoken"
+import { promptManager, type AgentType, type MessageCategory } from "@/lib/promptManager"
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 })
-
-const agents = {
-  normal: {
-    systemPrompt: `You are a healthcare expert with a broad understanding of human health, capable of addressing concerns using neutral, evidence-based and holistic perspectives. Respond with short, clear, and empathetic guidance, staying professional yet warm. Avoid long scripts; keep advice focused and practical.
-
-Identify the Concern: Briefly define the issue after gathering essential details (symptoms, history, duration, prior care).
-
-Possible Causes: Suggest likely reasons and simple steps or tests to confirm.
-
-Care Plan: Provide concise, well-balanced options — including remedies, lifestyle adjustments, and follow-up actions.
-
-Ethics & Safety: Ensure suggestions respect safety, legality, informed consent, and patient choice.
-
-Patient Understanding: Use simple, reassuring language to explain the concern and solutions.
-
-Prevention & Wellness: Offer quick, actionable tips to maintain overall health and prevent recurrence.
-
-Keep the tone kind, respectful, and supportive, as both a professional and a trusted guide.`,
-  },
-  jiva: {
-    systemPrompt: `You are an Ayurveda expert with deep knowledge of traditional practices, herbs, diet, and holistic health. Reply with short, clear, and empathetic guidance that blends accuracy with warmth. Keep answers focused, practical, and respectful of Ayurvedic heritage.
-
-Clarify the Question: Briefly restate the user's concern to confirm understanding (e.g., condition, herb, lifestyle advice).
-
-Accurate Insights: Share trustworthy, Ayurvedic-based information, referencing classical texts when relevant.
-
-Practical Advice: Offer easy-to-follow tips — remedies, diet, daily routines — that can be safely applied.
-
-Respect & Culture: Present Ayurveda with sensitivity and authenticity, avoiding oversimplification.
-
-Clear Structure:
-Intro: Restate the concern.
-Main Points: Key Ayurvedic perspective and recommendations.
-Closing: Short recap and next-step suggestions.
-
-Safety First: Remind users to consult a qualified practitioner before starting treatments.
-
-Encourage Dialogue: Welcome follow-up questions for deeper guidance.
-
-Keep the tone gentle, reassuring, and professional, as both a healer and a caring guide.`,
-  },
-  suri: {
-    systemPrompt: `You are an allopathic medical expert with deep knowledge of human health and medicine. Respond with short, clear, and empathetic answers, balancing professionalism with a caring tone. Avoid long scripts; keep guidance precise and on point.
-
-Identify the Issue: Briefly define the problem or symptoms after gathering key details (history, duration, past treatments).
-
-Diagnosis: Suggest likely causes and essential tests based on medical guidelines.
-
-Treatment: Provide concise, evidence-based steps — including medicines (dose, duration, key side effects), simple lifestyle changes, and follow-up advice.
-
-Ethics & Law: Ensure recommendations follow medical laws, informed consent, and respect patient choices.
-
-Patient Education: Use simple, reassuring language to help the patient understand their condition and care plan.
-
-Prevention: Offer quick, practical tips for avoiding recurrence and promoting wellness.
-
-Keep the tone warm, respectful, and supportive, as both a professional and a caretaker.`,
-  },
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -80,8 +22,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message and agent are required" }, { status: 400 })
     }
 
+    // Validate agent type
+    if (!promptManager.isValidAgent(agent)) {
+      return NextResponse.json({ error: "Invalid agent selected" }, { status: 400 })
+    }
+
+    // Categorize the message and get appropriate response guidance
+    const messageAnalysis = promptManager.categorizeMessage(message)
+
+    // Handle empty messages
+    if (messageAnalysis.category === 'empty') {
+      return NextResponse.json({ 
+        response: "Please share your health concern or question so I can help you better."
+      })
+    }
+
+    // Handle overly long messages
+    if (messageAnalysis.category === 'too_long') {
+      return NextResponse.json({ 
+        response: "Your message seems quite long. Could you please share your main health concern in a shorter message so I can help you better?"
+      })
+    }
+
+    // Handle emergency situations immediately
+    if (messageAnalysis.category === 'emergency') {
+      return NextResponse.json({ 
+        response: promptManager.getEmergencyResponse()
+      })
+    }
+
+    // Handle dangerous advice requests
+    if (messageAnalysis.category === 'dangerous') {
+      return NextResponse.json({ 
+        response: promptManager.getDangerousAdviceResponse()
+      })
+    }
+
+    // Handle inappropriate content
+    if (messageAnalysis.category === 'inappropriate') {
+      return NextResponse.json({ 
+        response: promptManager.getInappropriateContentResponse()
+      })
+    }
+
+    // Handle non-health queries
+    if (messageAnalysis.category === 'non_health') {
+      return NextResponse.json({ 
+        response: promptManager.getNonHealthContentResponse()
+      })
+    }
+
     const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
-    console.log("💬 Chat request from user:", decoded.id, "with agent:", agent)
+    console.log("💬 Chat request from user:", decoded.id, "with agent:", agent, "category:", messageAnalysis.category)
 
     const db = await getDatabase()
     const userProfile = await db.collection("users").findOne({ googleId: decoded.id })
@@ -92,29 +84,87 @@ export async function POST(request: NextRequest) {
       onboardingCompleted: userProfile?.onboardingCompleted,
     })
 
-    const selectedAgent = agents[agent as keyof typeof agents]
-    if (!selectedAgent) {
-      return NextResponse.json({ error: "Invalid agent selected" }, { status: 400 })
+    // Get agent configuration from prompt manager
+    const agentConfig = promptManager.getAgent(agent)
+    if (!agentConfig) {
+      return NextResponse.json({ error: "Agent configuration not found" }, { status: 500 })
     }
 
+    // Check if user is a medical professional
+    const isMedico = userProfile?.onboardingData?.profession === "medico"
+    const isForPractice = userProfile?.onboardingData?.usage === "practice"
+    
+    // Get appropriate system prompt based on user type
+    const userName = userProfile?.name ? userProfile.name.split(' ')[0] : undefined // Get first name
+    const systemPrompt = promptManager.getAgentSystemPrompt(agent, isMedico, userName)
+
+    console.log("👩‍⚕️ User profile analysis:", {
+      isMedico,
+      isForPractice,
+      userName,
+      userProfileName: userProfile?.name,
+      usingMedicoPrompt: isMedico && agentConfig.systemPromptMedico,
+      promptContainsName: userName ? systemPrompt.includes(userName) : 'No name to check',
+      promptContainsFallback: systemPrompt.includes('Doctor') || systemPrompt.includes('Colleague')
+    })
+
+    // Build personalized context based on message category
     let personalizedContext = ""
-    if (userProfile?.personalizedPrompt) {
+    let responsePrefix = ""
+    
+    if (messageAnalysis.category === 'greeting' && userProfile?.name) {
+      // For greetings, add personalized greeting prefix
+      responsePrefix = promptManager.getPersonalizedGreeting(agent, userProfile.name)
+      console.log("👋 Using personalized greeting for simple message")
+    } else if (promptManager.needsPersonalization(message) && userProfile?.personalizedPrompt) {
+      // For health-related questions, use full personalized context
       personalizedContext = `\n\nUser Context: ${userProfile.personalizedPrompt}`
-      console.log("✅ Using personalized context in chat")
+      console.log("✅ Using full personalized context for health-related query")
     } else {
-      console.log("⚠️ No personalized context available")
+      console.log("💬 Using standard response without personalization")
     }
 
-    const messages = [
+    // Add response guidance based on message category
+    if (messageAnalysis.guidance?.guidance) {
+      personalizedContext += `\n\nGUIDANCE: ${messageAnalysis.guidance.guidance}`
+    }
+
+    // Retrieve conversation history for current agent to maintain continuity
+    const recentMessages = await db.collection("chat_messages")
+      .find({ 
+        userId: decoded.id, 
+        agent: agent 
+      })
+      .sort({ timestamp: -1 })
+      .limit(10) // Get last 10 messages for context
+      .toArray()
+
+    // Prepare messages for AI including conversation history
+    const messages: Array<{role: "system" | "user" | "assistant", content: string}> = [
       {
-        role: "system" as const,
-        content: selectedAgent.systemPrompt + personalizedContext,
-      },
-      {
-        role: "user" as const,
-        content: message,
-      },
+        role: "system",
+        content: systemPrompt + personalizedContext,
+      }
     ]
+
+    // Add conversation history (oldest first)
+    const historyMessages = recentMessages.reverse()
+    for (const historyMsg of historyMessages) {
+      messages.push({
+        role: "user",
+        content: historyMsg.userMessage,
+      })
+      messages.push({
+        role: "assistant",
+        content: historyMsg.botResponse,
+      })
+    }
+
+    // Add current user message last
+    messages.push({
+      role: "user",
+      content: message,
+    })
 
     console.log("🤖 Sending request to Groq...")
     const completion = await groq.chat.completions.create({
@@ -127,6 +177,7 @@ export async function POST(request: NextRequest) {
     let response =
       completion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again."
 
+    // Clean up response formatting
     response = response
       .replace(/\*\*(.*?)\*\*/g, "$1") // Remove bold markdown
       .replace(/\*(.*?)\*/g, "$1") // Remove italic markdown
@@ -137,18 +188,38 @@ export async function POST(request: NextRequest) {
       .replace(/^\s*\d+\.\s/gm, "") // Remove numbered lists
       .trim()
 
+    // Add personalized greeting prefix for simple greetings
+    if (responsePrefix) {
+      response = responsePrefix + response
+    }
+
+    // Save chat message to database
     const chatMessage = {
       userId: decoded.id,
-      agent: agent as "normal" | "jiva" | "suri",
+      agent: agent as AgentType,
       userMessage: message,
       aiResponse: response,
       timestamp: new Date(),
+      messageCategory: messageAnalysis.category,
+      flagged: false, // Emergency and inappropriate are handled earlier
+      agentConfig: {
+        name: agentConfig.name,
+        greetingStyle: agentConfig.greetingStyle,
+        responseLength: agentConfig.responseLength
+      }
     }
 
     await db.collection("chat_messages").insertOne(chatMessage)
-    console.log("💾 Chat message saved to database")
+    console.log(`💾 Chat message saved - Category: ${messageAnalysis.category}, Agent: ${agentConfig.name}`)
 
-    return NextResponse.json({ response })
+    return NextResponse.json({ 
+      response,
+      metadata: {
+        agent: agentConfig.name,
+        category: messageAnalysis.category,
+        personalized: !!responsePrefix || !!personalizedContext
+      }
+    })
   } catch (error) {
     console.error("❌ Chat API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

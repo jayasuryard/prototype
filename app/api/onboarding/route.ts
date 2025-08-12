@@ -78,7 +78,18 @@ export async function POST(request: NextRequest) {
     const existingUser = await db.collection("users").findOne({ googleId: decoded.id })
     if (!existingUser) {
       console.error("❌ User not found for onboarding:", decoded.id)
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      // Create user if somehow it doesn't exist (fallback)
+      const newUser = {
+        googleId: decoded.id,
+        email: decoded.email,
+        name: decoded.name,
+        picture: decoded.picture,
+        onboardingCompleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      await db.collection("users").insertOne(newUser)
+      console.log("✅ Created missing user during onboarding:", decoded.id)
     }
 
     console.log("💾 Updating user with onboarding data...")

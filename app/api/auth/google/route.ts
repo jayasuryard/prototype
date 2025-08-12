@@ -4,7 +4,7 @@ export async function GET(request: NextRequest) {
   const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
 
   googleAuthUrl.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID || "")
-  googleAuthUrl.searchParams.set("redirect_uri", "https://v0-image-analysis-phi-one-61.vercel.app/redirect/google")
+  googleAuthUrl.searchParams.set("redirect_uri", process.env.NEXTAUTH_URL || "")
   googleAuthUrl.searchParams.set("response_type", "code")
   googleAuthUrl.searchParams.set("scope", "openid email profile")
   googleAuthUrl.searchParams.set("access_type", "offline")

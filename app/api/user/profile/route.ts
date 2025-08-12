@@ -41,6 +41,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       userData: profileData,
       personalizedPrompt: userProfile.personalizedPrompt,
+      profile: {
+        name: userProfile.name,
+        email: userProfile.email,
+        picture: userProfile.picture
+      },
+      onboardingData: userProfile.onboardingData
     })
   } catch (error) {
     console.error("❌ Profile fetch error:", error)
