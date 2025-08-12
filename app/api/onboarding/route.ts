@@ -5,16 +5,38 @@ import { generatePersonalizedPrompt, type UserProfile } from "@/lib/models/user"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("📝 Onboarding POST request received")
+    console.log("🌍 Environment check:", {
+      hasMongoUri: !!process.env.MONGODB_URI,
+      hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+      nodeEnv: process.env.NODE_ENV,
+    })
+
     const authHeader = request.headers.get("authorization")
     const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
 
     if (!authToken) {
       console.error("❌ No authorization token provided")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized - No token provided" }, { status: 401 })
     }
 
-    const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
-    const onboardingData = await request.json()
+    let decoded
+    try {
+      decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
+      console.log("✅ JWT token verified for user:", decoded.id)
+    } catch (jwtError) {
+      console.error("❌ JWT verification failed:", jwtError)
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 })
+    }
+
+    let onboardingData
+    try {
+      onboardingData = await request.json()
+      console.log("📊 Onboarding data received:", JSON.stringify(onboardingData, null, 2))
+    } catch (parseError) {
+      console.error("❌ Failed to parse request body:", parseError)
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
+    }
 
     console.log("📝 Received onboarding data for user:", decoded.id)
     console.log("📊 Onboarding data:", JSON.stringify(onboardingData, null, 2))
@@ -51,8 +73,21 @@ export async function POST(request: NextRequest) {
 
     console.log("Generated personalized prompt:", personalizedPrompt)
 
-    console.log("🔌 Connecting to database for onboarding...")
-    const db = await getDatabase()
+    let db
+    try {
+      console.log("🔌 Connecting to database for onboarding...")
+      db = await getDatabase()
+      console.log("✅ Database connection successful")
+    } catch (dbError) {
+      console.error("❌ Database connection failed:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database connection failed",
+          details: dbError instanceof Error ? dbError.message : "Unknown database error",
+        },
+        { status: 500 },
+      )
+    }
 
     const existingUser = await db.collection("users").findOne({ googleId: decoded.id })
     if (!existingUser) {
@@ -102,11 +137,12 @@ export async function POST(request: NextRequest) {
       message: "Onboarding completed successfully",
     })
   } catch (error) {
-    console.error("❌ Onboarding API error:", error)
+    console.error("❌ Onboarding API critical error:", error)
     return NextResponse.json(
       {
         error: "Failed to save onboarding data",
         details: error instanceof Error ? error.message : "Unknown error",
+        stack: process.env.NODE_ENV === "development" ? (error instanceof Error ? error.stack : undefined) : undefined,
       },
       { status: 500 },
     )
@@ -115,24 +151,70 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Simple health check first
+    const url = new URL(request.url)
+    if (url.searchParams.get("test") === "true") {
+      return NextResponse.json({
+        status: "OK",
+        message: "Onboarding API is accessible",
+        timestamp: new Date().toISOString(),
+        env: {
+          hasMongoUri: !!process.env.MONGODB_URI,
+          hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+        },
+      })
+    }
+
     const authHeader = request.headers.get("authorization")
     const authToken = authHeader ? authHeader.replace(/^Bearer /i, "").trim() : null
+
     if (!authToken) {
+      console.error("❌ No authorization token provided for GET profile")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
+    let decoded
+    try {
+      decoded = jwt.verify(authToken, process.env.NEXTAUTH_SECRET || "fallback-secret") as any
+    } catch (jwtError) {
+      console.error("❌ JWT verification failed:", jwtError)
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    }
 
-    const db = await getDatabase()
+    console.log("🔍 Getting profile for user:", decoded.id)
+
+    let db
+    try {
+      db = await getDatabase()
+      console.log("✅ Database connection successful for profile GET")
+    } catch (dbError) {
+      console.error("❌ Database connection failed:", dbError)
+      return NextResponse.json(
+        {
+          error: "Database connection failed",
+          details: dbError instanceof Error ? dbError.message : "Unknown database error",
+        },
+        { status: 500 },
+      )
+    }
+
     const userProfile = (await db.collection("users").findOne({ googleId: decoded.id })) as UserProfile | null
 
     if (!userProfile) {
+      console.error("❌ Profile not found for user:", decoded.id)
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
+    console.log("✅ Profile found for user:", decoded.id)
     return NextResponse.json(userProfile)
   } catch (error) {
-    console.error("Get profile API error:", error)
-    return NextResponse.json({ error: "Failed to get user profile" }, { status: 500 })
+    console.error("❌ Get profile API error:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to get user profile",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
